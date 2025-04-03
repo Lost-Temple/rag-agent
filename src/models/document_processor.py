@@ -8,8 +8,8 @@ from langchain_community.document_loaders import (
 )
 from langchain_community.docstore.document import Document
 from src.config import settings
+from src.models.storage.peewee_store import PeeweeStore
 from src.models.summarization.document_summarizer import DocumentSummarizer
-from src.models.storage.sqlite_store import SQLiteStore
 
 class DocumentProcessor:
     def __init__(self):
@@ -31,7 +31,7 @@ class DocumentProcessor:
         self.summarizer = DocumentSummarizer()
         
         # 初始化SQLite存储
-        self.sqlite_store = SQLiteStore()
+        self.sqlite_store = PeeweeStore()
     
     def load_document(self, file_path: str) -> List[Document]:
         """加载文档并返回Document对象列表"""

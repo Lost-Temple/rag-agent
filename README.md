@@ -63,17 +63,15 @@ cp .env.example .env
 
 ### 1. 启动服务
 
-启动RESTful API服务：
+通过main.py统一入口启动所有服务：
 
 ```bash
-python api_service.py
+python main.py
 ```
 
-启动MCP服务：
-
-```bash
-python mcp_service.py
-```
+支持以下可选参数：
+- --port: 指定服务端口（默认8000）
+- --debug: 启用调试模式
 
 ### 2. 上传文档
 

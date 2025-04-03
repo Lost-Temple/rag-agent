@@ -41,6 +41,7 @@ class PeeweeStore:
         if not db.is_closed():
             db.close()
 
+    @db.connection_context()
     def save_document_summary(self, doc_id: str, filename: str, summary: str) -> bool:
         try:
             DocumentSummary.insert(
@@ -59,6 +60,7 @@ class PeeweeStore:
             logger.error(f"保存文档摘要失败: {str(e)}")
             return False
 
+    @db.connection_context()
     def get_document_summary(self, doc_id: str) -> Optional[Dict[str, Any]]:
         try:
             summary = DocumentSummary.get_or_none(DocumentSummary.doc_id == doc_id)
@@ -75,6 +77,7 @@ class PeeweeStore:
             logger.error(f"获取文档摘要失败: {str(e)}")
             return None
 
+    @db.connection_context()
     def get_all_document_summaries(self) -> List[Dict[str, Any]]:
         try:
             return [{

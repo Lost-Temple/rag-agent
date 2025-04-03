@@ -1,8 +1,25 @@
-import sqlite3
+from peewee import *
 import os
 from typing import Dict, Any, Optional, List
+
+
 from src.config import settings
 from src.utils import logger
+
+# 定义Peewee数据库连接
+sqlite_db = SqliteDatabase(None)
+
+# 定义文档摘要模型
+class DocumentSummary(Model):
+    doc_id = CharField(primary_key=True)
+    filename = CharField()
+    summary = TextField()
+    created_at = DateTimeField(constraints=[SQL('DEFAULT CURRENT_TIMESTAMP')])
+    updated_at = DateTimeField(constraints=[SQL('DEFAULT CURRENT_TIMESTAMP')])
+    
+    class Meta:
+        database = sqlite_db
+        table_name = 'document_summaries'
 
 class SQLiteStore:
     def __init__(self, db_path: Optional[str] = None):
@@ -21,7 +38,8 @@ class SQLiteStore:
             db_path = settings.sqlite_db_path
         
         self.db_path = db_path
-        self.conn = None
+        sqlite_db.init(db_path)
+        
         self._initialize_db()
     
     def _initialize_db(self):

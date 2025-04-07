@@ -7,6 +7,7 @@ from langchain_community.docstore.document import Document
 from src.api.api_service import app
 from src.config import settings
 from src.models.document_processor import DocumentProcessor
+pytestmark = pytest.mark.asyncio
 
 # 创建测试客户端
 client = TestClient(app)
@@ -125,7 +126,7 @@ async def test_document_summary_direct_generation():
             # 生成摘要
             doc_id = "test-doc-id"
             filename = "test_document.txt"
-            summary = doc_processor.generate_document_summary(TEST_FILE_PATH, doc_id, filename)
+            summary = await doc_processor.generate_document_summary(TEST_FILE_PATH, doc_id, filename)
             
             # 验证结果
             assert summary == mock_summary

@@ -4,7 +4,8 @@ from langchain_community.document_loaders import (
     TextLoader,
     PyPDFLoader,
     Docx2txtLoader,
-    UnstructuredMarkdownLoader
+    UnstructuredMarkdownLoader,
+    UnstructuredFileLoader
 )
 from langchain_community.docstore.document import Document
 from src.config import settings
@@ -24,6 +25,7 @@ class DocumentProcessor:
             ".txt": TextLoader,
             ".pdf": PyPDFLoader,
             ".docx": Docx2txtLoader,
+            ".doc": UnstructuredFileLoader,
             ".md": UnstructuredMarkdownLoader
         }
         
@@ -58,7 +60,7 @@ class DocumentProcessor:
         """提取文档元数据"""
         return [doc.metadata for doc in documents]
     
-    def generate_document_summary(self, file_path: str, doc_id: str, filename: str) -> Optional[str]:
+    async def generate_document_summary(self, file_path: str, doc_id: str, filename: str) -> Optional[str]:
         """
         生成文档摘要并存储到SQLite数据库
         
@@ -75,7 +77,7 @@ class DocumentProcessor:
             documents = self.load_document(file_path)
             
             # 生成摘要
-            summary = self.summarizer.summarize_documents(documents)
+            summary = await self.summarizer.summarize_documents(documents)
             
             # 存储摘要到SQLite
             if summary and summary != "摘要生成失败" and summary != "多文档摘要生成失败":

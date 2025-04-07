@@ -17,6 +17,8 @@ class ServiceManager:
         self._mcp_server = None
         self._mcp_app = None
         self._event_loop = None
+        self._resources_initialized = False
+        self._rag_system = None
     
     def _setup_signal_handlers(self):
         # 设置信号处理器用于优雅关闭
@@ -26,14 +28,80 @@ class ServiceManager:
     def _handle_shutdown(self, signum, frame):
         logger.info("Received shutdown signal. Initiating graceful shutdown...")
         self._running = False
-        if self._api_server:
-            logger.info("Stopping API server...")
-            self._api_server.should_exit = True
-        if self._mcp_server:
-            logger.info("Stopping MCP server...")
-            # MCP服务器没有明确的关闭方法，依赖于事件循环的停止
-        if self._event_loop:
-            self._event_loop.stop()
+        # 调用shutdown方法来优雅地关闭所有资源
+        self.shutdown()
+    
+    def shutdown(self):
+        """优雅地关闭所有服务和资源"""
+        try:
+            # 停止API服务器
+            if self._api_server:
+                logger.info("Stopping API server...")
+                self._api_server.should_exit = True
+            
+            # 停止MCP服务器
+            if self._mcp_server:
+                logger.info("Stopping MCP server...")
+                # MCP服务器没有明确的关闭方法，依赖于事件循环的停止
+            
+            # 关闭RAG系统资源
+            if self._rag_system:
+                logger.info("Closing RAG system resources...")
+                try:
+                    # 关闭图数据库连接
+                    if hasattr(self._rag_system, 'graph_store'):
+                        logger.info("Closing graph database connection...")
+                        self._rag_system.graph_store.close()
+                    
+                    # 关闭SQLite数据库连接
+                    if hasattr(self._rag_system, 'doc_processor') and hasattr(self._rag_system.doc_processor, 'sqlite_store'):
+                        logger.info("Closing SQLite database connection...")
+                        self._rag_system.doc_processor.sqlite_store.close()
+                except Exception as e:
+                    logger.error(f"Error closing database connections: {str(e)}")
+            
+            # 优雅地关闭事件循环：取消所有未完成的任务
+            if self._event_loop:
+                logger.info("Cancelling all pending tasks...")
+                # 获取所有未完成的任务
+                pending_tasks = [task for task in asyncio.all_tasks(self._event_loop) 
+                               if not task.done() and task is not asyncio.current_task()]
+                
+                if pending_tasks:
+                    # 取消所有未完成的任务
+                    for task in pending_tasks:
+                        task.cancel()
+                    
+                    # 等待所有任务完成取消操作
+                    logger.info(f"Waiting for {len(pending_tasks)} tasks to cancel...")
+                    try:
+                        # 使用gather和短暂超时等待任务取消
+                        self._event_loop.run_until_complete(
+                            asyncio.gather(*pending_tasks, return_exceptions=True)
+                        )
+                    except asyncio.CancelledError:
+                        pass
+                    except Exception as e:
+                        logger.error(f"Error while cancelling tasks: {str(e)}")
+                
+                # 最后停止事件循环
+                logger.info("Stopping event loop...")
+                self._event_loop.stop()
+                
+            logger.info("All resources have been gracefully shut down.")
+        except Exception as e:
+            logger.error(f"Error during shutdown: {str(e)}")
+            # 即使出现错误，也要尝试停止事件循环
+            if self._event_loop:
+                # 尝试取消任务
+                try:
+                    pending_tasks = [task for task in asyncio.all_tasks(self._event_loop) 
+                                   if not task.done() and task is not asyncio.current_task()]
+                    for task in pending_tasks:
+                        task.cancel()
+                except Exception:
+                    pass
+                self._event_loop.stop()
     
     async def _start_api_server(self):
         config = uvicorn.Config(
@@ -104,6 +172,11 @@ class ServiceManager:
         # 但我们可以预先导入以确保它被初始化
         import src.api.llm_service
         
+        # 获取RAG系统实例，用于在关闭时释放资源
+        from src.api.api_service import rag_system
+        self._rag_system = rag_system
+        self._resources_initialized = True
+        
         # 并行启动所有服务
         logger.info("Starting all services in parallel...")
         await asyncio.gather(
@@ -116,6 +189,12 @@ def main():
     try:
         asyncio.run(service_manager.start_all_services())
     except KeyboardInterrupt:
+        # KeyboardInterrupt已经通过信号处理器处理
+        pass
+    except Exception as e:
+        logger.error(f"程序异常退出: {str(e)}")
+    finally:
+        # 确保在任何情况下都能完成优雅退出
         logger.info("Shutdown complete.")
 
 if __name__ == "__main__":

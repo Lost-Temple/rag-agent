@@ -99,7 +99,7 @@ class DocumentSummarizer:
             
         return chunks
     
-    def summarize_document(self, document: Document) -> str:
+    async def summarize_document(self, document: Document) -> str:
         """
         对单个Document对象进行摘要
         
@@ -110,7 +110,7 @@ class DocumentSummarizer:
             str: 文档摘要
         """
         try:
-            return self.summarize_text(document.page_content)
+            return await self.summarize_text(document.page_content)
         except Exception as e:
             logger.error(f"摘要生成失败: {str(e)}")
             return "摘要生成失败"
@@ -179,7 +179,7 @@ class DocumentSummarizer:
             logger.error(f"摘要生成过程中出错: {str(e)}")
             return "摘要生成失败"
     
-    def summarize_documents(self, documents: List[Document]) -> str:
+    async def summarize_documents(self, documents: List[Document]) -> str:
         """
         对多个Document对象进行摘要
         
@@ -192,7 +192,7 @@ class DocumentSummarizer:
         try:
             # 合并所有文档内容
             combined_text = "\n\n".join([doc.page_content for doc in documents])
-            return self.summarize_text(combined_text)
+            return await self.summarize_text(combined_text)
         except Exception as e:
             logger.error(f"多文档摘要生成失败: {str(e)}")
             return "多文档摘要生成失败"

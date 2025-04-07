@@ -1,7 +1,9 @@
 from typing import List, Dict, Any
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.documents import Document
-from langchain_community.vectorstores import FAISS, Milvus
+from langchain_community.vectorstores import FAISS
+from langchain_milvus import Milvus
+from pymilvus import connections, Collection
 from langchain_chroma import Chroma
 from sentence_transformers import CrossEncoder
 from src.config import settings
@@ -49,23 +51,38 @@ class Vectorizer:
                 os.makedirs(settings.vector_store_path)
             self.vector_store.save_local(settings.vector_store_path)
         elif settings.vector_store_type.lower() == "milvus":
-            self.vector_store = Milvus.from_documents(
-                documents=documents,
-                embedding=self.embedding_model,
-                collection_name=settings.milvus_collection,
-                connection_args={
-                    "host": settings.milvus_host,
-                    "port": settings.milvus_port,
-                    "user": settings.milvus_user,
-                    "password": settings.milvus_password
-                },
-                index_params={
-                    "index_type": settings.milvus_index_type,
-                    "metric_type": settings.milvus_metric_type,
-                    "params": settings.milvus_index_params
-                },
-                search_params=settings.milvus_search_params
-            )
+            logger.info(f"正在初始化Milvus向量库，连接到 {settings.milvus_host}:{settings.milvus_port}，集合名称: {settings.milvus_collection}")
+            try:
+                self.vector_store = Milvus.from_documents(
+                    documents=documents,
+                    embedding=self.embedding_model,
+                    collection_name=settings.milvus_collection,
+                    connection_args={
+                        "host": settings.milvus_host,
+                        "port": settings.milvus_port,
+                        "user": settings.milvus_user,
+                        "password": settings.milvus_password
+                    },
+                    index_params={
+                        "index_type": settings.milvus_index_type,
+                        "metric_type": settings.milvus_metric_type,
+                        "params": settings.milvus_index_params
+                    },
+                    search_params=settings.milvus_search_params
+                )
+                logger.info(f"成功初始化Milvus向量库，已存储{len(documents)}个文档")
+            except Exception as e:
+                logger.error(f"Milvus向量库初始化失败: {str(e)}，将回退到使用FAISS")
+                # 回退到FAISS
+                logger.info("正在回退到FAISS向量库...")
+                self.vector_store = FAISS.from_documents(
+                    documents=documents,
+                    embedding=self.embedding_model
+                )
+                if not os.path.exists(settings.vector_store_path):
+                    os.makedirs(settings.vector_store_path)
+                self.vector_store.save_local(settings.vector_store_path)
+                logger.info(f"已成功回退到FAISS向量库并保存到{settings.vector_store_path}")
         logger.info(f"成功初始化向量库，类型: {settings.vector_store_type}，文档数量: {len(documents)}")
         
     def ensure_vector_store(self, documents: List[Document]) -> bool:
@@ -79,9 +96,19 @@ class Vectorizer:
         """
         if self.vector_store is None:
             if documents:
-                logger.info("向量库未初始化，正在使用提供的文档进行初始化...")
+                logger.info(f"向量库未初始化，正在使用提供的文档进行初始化...文档数量: {len(documents)}")
+                logger.info(f"当前配置的向量库类型: {settings.vector_store_type}")
+                if settings.vector_store_type.lower() == "milvus":
+                    logger.info(f"Milvus配置 - 主机: {settings.milvus_host}, 端口: {settings.milvus_port}, 集合: {settings.milvus_collection}")
                 self.initialize_vector_store(documents)
-                return True
+                
+                # 验证向量库是否成功初始化
+                if self.vector_store is None:
+                    logger.error("向量库初始化失败，仍为None")
+                    return False
+                else:
+                    logger.info(f"向量库初始化成功，类型: {type(self.vector_store).__name__}")
+                    return True
             else:
                 logger.error("向量库未初始化且没有提供文档进行初始化")
                 return False
@@ -117,6 +144,7 @@ class Vectorizer:
                     logger.info(f"FAISS索引文件不存在: {settings.vector_store_path}，将在需要时创建")
                     self.vector_store = None
             elif settings.vector_store_type.lower() == "milvus":
+                logger.info(f"正在尝试连接Milvus向量库: {settings.milvus_host}:{settings.milvus_port}，集合名称: {settings.milvus_collection}")
                 try:
                     # 尝试连接Milvus并获取向量库
                     self.vector_store = Milvus(
@@ -135,9 +163,20 @@ class Vectorizer:
                         },
                         search_params=settings.milvus_search_params
                     )
+                    logger.info(f"成功连接到Milvus向量库，集合: {settings.milvus_collection}")
+                    # 检查集合中的实体数量
+                    try:
+                        collection = Collection(settings.milvus_collection)
+                        collection.load()
+                        num_entities = collection.num_entities
+                        logger.info(f"Milvus集合统计信息: 实体数量={num_entities}")
+                    except Exception as stats_error:
+                        logger.warning(f"无法获取Milvus集合统计信息: {str(stats_error)}")
                 except Exception as milvus_error:
                     # Milvus连接失败或集合不存在，不立即初始化
                     logger.error(f"Milvus连接失败或集合不存在: {str(milvus_error)}，将在需要时创建")
+                    logger.info(f"Milvus连接详细信息 - 主机: {settings.milvus_host}, 端口: {settings.milvus_port}, 用户: {settings.milvus_user}, 集合: {settings.milvus_collection}")
+                    logger.info(f"Milvus索引配置 - 类型: {settings.milvus_index_type}, 度量类型: {settings.milvus_metric_type}, 参数: {settings.milvus_index_params}")
                     self.vector_store = None
         except Exception as e:
             logger.error(f"加载向量库失败: {str(e)}，将在需要时创建")

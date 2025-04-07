@@ -19,7 +19,9 @@
 
 ```bash
 pip install -r requirements.txt
+brew install --cask libreoffice  # 这个命令用于安装LibreOffice，在使用doc文件上传时需要安装
 ```
+
 
 2. 安装并启动Neo4j数据库
 

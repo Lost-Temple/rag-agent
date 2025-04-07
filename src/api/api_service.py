@@ -84,7 +84,7 @@ async def upload_document(file: UploadFile = File(...)) -> Dict[str, Any]:
             rag_system.vectorizer.initialize_vector_store(documents)
             
             # 生成文档摘要
-            summary = rag_system.doc_processor.generate_document_summary(
+            summary = await rag_system.doc_processor.generate_document_summary(
                 original_file_path,
                 doc_id,
                 file.filename

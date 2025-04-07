@@ -21,7 +21,6 @@ class RAGSystem:
         # 确保向量存储目录存在
         if not os.path.exists(settings.vector_store_path):
             os.makedirs(settings.vector_store_path)
-            self.vectorizer.initialize_vector_store([])
         else:
             self.vectorizer.load_vector_store()
 

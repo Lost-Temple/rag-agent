@@ -4,9 +4,9 @@ from langchain_community.document_loaders import (
     TextLoader,
     PyPDFLoader,
     Docx2txtLoader,
-    UnstructuredMarkdownLoader
+    UnstructuredMarkdownLoader,
+    UnstructuredFileLoader
 )
-from langchain_unstructured import UnstructuredLoader
 from langchain_community.docstore.document import Document
 from src.config import settings
 from src.models.storage.peewee_store import PeeweeStore
@@ -25,7 +25,7 @@ class DocumentProcessor:
             ".txt": TextLoader,
             ".pdf": PyPDFLoader,
             ".docx": Docx2txtLoader,
-            ".doc": UnstructuredLoader,
+            ".doc": UnstructuredFileLoader,
             ".md": UnstructuredMarkdownLoader
         }
         

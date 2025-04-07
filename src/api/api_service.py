@@ -38,19 +38,14 @@ async def upload_document(file: UploadFile = File(...)) -> Dict[str, Any]:
             
         # 保存上传的文件到原始文档存储目录
         original_file_path = os.path.join(settings.original_documents_path, f"{doc_id}_{file.filename}")
-        temp_file_path = f"temp_{file.filename}"
         try:
-            with open(temp_file_path, "wb") as buffer:
+            with open(original_file_path, "wb") as buffer:
                 content = await file.read()
                 buffer.write(content)
-                
-            # 同时保存一份到原始文档存储目录
-            with open(original_file_path, "wb") as original_file:
-                original_file.write(content)
-            
+
             # 处理文档
-            documents = rag_system.doc_processor.process_document(temp_file_path)
-            
+            documents = rag_system.doc_processor.process_document(original_file_path)
+
             # 提取元数据
             metadata = {
                 "doc_id": doc_id,
@@ -58,10 +53,10 @@ async def upload_document(file: UploadFile = File(...)) -> Dict[str, Any]:
                 "content_type": file.content_type,
                 "original_file_path": original_file_path
             }
-            
+
             # 存储到图数据库
             rag_system.graph_store.create_document_node(doc_id, metadata)
-            
+
             # 为每个文档片段创建节点
             for i, doc in enumerate(documents):
                 chunk_id = f"{doc_id}_chunk_{i}"
@@ -71,24 +66,24 @@ async def upload_document(file: UploadFile = File(...)) -> Dict[str, Any]:
                     "doc_id": doc_id,
                     "chunk_index": i
                 })
-                
+
                 rag_system.graph_store.create_chunk_node(
-                    chunk_id,
-                    doc_id,
-                    doc.page_content,
-                    chunk_metadata
+                    chunk_id, # chunk的ID
+                    doc_id,  # 所属文档的ID
+                    doc.page_content,  # 文档片段的内容
+                    chunk_metadata  # chunk的元数据可以自定义，保存到图数据库中
                 )
-            
+
             # 更新向量存储
             rag_system.vectorizer.initialize_vector_store(documents)
-            
+
             # 生成文档摘要
             summary = await rag_system.doc_processor.generate_document_summary(
                 original_file_path,
                 doc_id,
                 file.filename
             )
-            
+
             return {
                 "status": "success",
                 "doc_id": doc_id,
@@ -96,11 +91,10 @@ async def upload_document(file: UploadFile = File(...)) -> Dict[str, Any]:
                 "chunks_count": len(documents),
                 "summary_generated": summary is not None
             }
-            
+
         finally:
-            # 只清理临时文件，保留原始文档
-            if os.path.exists(temp_file_path):
-                os.remove(temp_file_path)
+            # 不再需要清理临时文件
+            pass
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -45,6 +45,7 @@ def cleanup_temp_files():
     for filename in os.listdir("."):
         if filename.startswith("temp_"):
             os.remove(filename)
+
 @pytest.fixture(scope="function")
 def test_milvus_connection():
     """测试Milvus向量库连接和集合创建功能"""

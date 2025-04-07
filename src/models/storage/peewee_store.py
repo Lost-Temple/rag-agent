@@ -30,7 +30,7 @@ class DocumentSummary(BaseModel):
 class PeeweeStore:
     def __init__(self):
         try:
-            db.connect()
+            db.connect(reuse_if_open=True)
             db.create_tables([DocumentSummary])
             logger.info(f"成功初始化Peewee数据库: {settings.sqlite_db_path}")
         except Exception as e:

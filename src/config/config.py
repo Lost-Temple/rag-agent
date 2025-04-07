@@ -61,7 +61,8 @@ class Settings(BaseSettings):
     log_file_max_bytes: int = 10*1024*1024  # 日志文件大小限制，默认10MB
     log_file_backup_count: int = 5         # 保留的备份文件数量
     
-    class Config:
-        env_file = ".env"
+    model_config = {
+        "env_file": ".env"
+    }
 
 settings = Settings()

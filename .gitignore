@@ -15,6 +15,11 @@ logs/
 
 data/**/*.doc
 
+tests/data/
+tests/output/
+tests/integration/
+tests/models/
+
 
 # Environment variables
 .env

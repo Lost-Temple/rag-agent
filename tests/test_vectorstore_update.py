@@ -78,7 +78,7 @@ async def test_vectorstore_initialization_with_empty_documents(setup_test_enviro
         vectorizer.initialize_vector_store([])
         
         # 验证是否记录了警告日志
-        mock_logger_warning.assert_called_once_with("尝试使用空文档列表初始化向量库，这可能导致维度不匹配问题")
+        mock_logger_warning.assert_called_once_with("尝试使用空文档列表初始化向量库，不允许此操作")
 
 @pytest.mark.asyncio
 async def test_vectorstore_faiss_save_after_initialization(setup_test_environment):

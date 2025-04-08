@@ -1,8 +1,20 @@
 import os
 import pytest
+import uuid
 import shutil
+from unittest.mock import patch, MagicMock
+from fastapi.testclient import TestClient
+from langchain_community.docstore.document import Document
+from src.api.api_service import app, RAGSystem
 from src.config import settings
+from src.models.document_processor import DocumentProcessor
 from pymilvus import Collection
+
+# 创建测试客户端
+@pytest.fixture(scope="session")
+def client():
+    """返回FastAPI测试客户端"""
+    return TestClient(app)
 
 # 测试文件路径
 TEST_FILE_PATH = "test_document.txt"
@@ -28,13 +40,39 @@ def test_file():
     """创建测试文件并在测试后清理"""
     # 创建测试文件
     with open(TEST_FILE_PATH, "w", encoding="utf-8") as f:
-        f.write("这是一个测试文档，用于测试文件上传功能。")
+        f.write("这是一个测试文档，用于测试功能。")
     
     yield TEST_FILE_PATH
     
     # 清理测试文件
     if os.path.exists(TEST_FILE_PATH):
         os.remove(TEST_FILE_PATH)
+
+@pytest.fixture(scope="function")
+def test_file_with_content(content="这是一个测试文档，用于测试功能。"):
+    """创建带有指定内容的测试文件并在测试后清理"""
+    # 创建测试文件
+    with open(TEST_FILE_PATH, "w", encoding="utf-8") as f:
+        f.write(content)
+    
+    yield TEST_FILE_PATH
+    
+    # 清理测试文件
+    if os.path.exists(TEST_FILE_PATH):
+        os.remove(TEST_FILE_PATH)
+
+@pytest.fixture(scope="function")
+def fixed_uuid():
+    """返回固定的UUID用于测试"""
+    return "12345678-1234-5678-1234-567812345678"
+
+@pytest.fixture(scope="function")
+def mock_documents():
+    """返回模拟的文档列表"""
+    return [
+        Document(page_content="测试文档内容第一部分", metadata={"source": TEST_FILE_PATH}),
+        Document(page_content="测试文档内容第二部分", metadata={"source": TEST_FILE_PATH})
+    ]
 
 @pytest.fixture(scope="function")
 def cleanup_temp_files():

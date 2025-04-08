@@ -118,6 +118,9 @@ def get_document(doc_id: str) -> Dict[str, Any]:
             "summary": summary_info["summary"] if summary_info else None
         }
     
+    except HTTPException:
+        # 直接重新抛出HTTP异常，保持原始状态码
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

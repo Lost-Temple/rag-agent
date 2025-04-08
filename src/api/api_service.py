@@ -38,9 +38,13 @@ async def upload_document(file: UploadFile = File(...)) -> Dict[str, Any]:
         # 确保原始文档存储目录存在
         if not os.path.exists(settings.original_documents_path):
             os.makedirs(settings.original_documents_path)
+        
+        # 创建以doc_id为名的子目录
+        doc_dir = os.path.join(settings.original_documents_path, doc_id)
+        os.makedirs(doc_dir, exist_ok=True)
             
-        # 保存上传的文件到原始文档存储目录
-        original_file_path = os.path.join(settings.original_documents_path, f"{doc_id}_{file.filename}")
+        # 保存上传的文件到文档子目录，使用原始文件名
+        original_file_path = os.path.join(doc_dir, file.filename)
         try:
             with open(original_file_path, "wb") as buffer:
                 content = await file.read()
@@ -54,7 +58,8 @@ async def upload_document(file: UploadFile = File(...)) -> Dict[str, Any]:
                 "doc_id": doc_id,
                 "filename": file.filename,
                 "content_type": file.content_type,
-                "original_file_path": original_file_path
+                "original_file_path": original_file_path,
+                "doc_dir": doc_dir  # 添加文档目录路径到元数据
             }
 
             # 存储到图数据库
@@ -108,6 +113,11 @@ def get_document(doc_id: str) -> Dict[str, Any]:
         metadata = rag_system.graph_store.get_document_metadata(doc_id)
         if not metadata:
             raise HTTPException(status_code=404, detail="Document not found")
+        
+        # 检查文档目录是否存在
+        doc_dir = metadata.get("doc_dir")
+        if not doc_dir or not os.path.exists(doc_dir):
+            raise HTTPException(status_code=404, detail="Document directory not found")
         
         chunks = rag_system.graph_store.get_document_chunks(doc_id)
         

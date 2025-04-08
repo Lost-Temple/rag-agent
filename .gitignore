@@ -13,7 +13,7 @@ env/
 logs/
 *.log
 
-data/**/*.doc
+data/
 
 tests/data/
 tests/output/

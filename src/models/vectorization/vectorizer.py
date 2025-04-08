@@ -152,6 +152,17 @@ class Vectorizer:
                 logger.error("向量库未初始化且没有提供文档进行初始化")
                 return False
         return True
+
+    def is_initialized(self):
+        """
+        检查向量库是否已初始化
+
+        Returns:
+            bool: 如果向量库已初始化则返回True，否则返回False
+        """
+        # 根据实际的向量库实现来检查初始化状态
+        # 例如，检查self.vector_store是否为None
+        return hasattr(self, 'vector_store') and self.vector_store is not None
     
     def load_vector_store(self):
         """加载现有的向量数据库"""
@@ -184,14 +195,48 @@ class Vectorizer:
                     self.vector_store = None
             elif settings.vector_store_type.lower() == "milvus":
                 logger.info(f"正在尝试连接Milvus向量库: {settings.milvus_host}:{settings.milvus_port}")
-                # 只检查连接是否正常，不检查或创建collection
-                connected = self.check_milvus_connection()
-                if connected:
-                    logger.info("Milvus连接正常，向量库将在需要时初始化")
-                    # 不立即初始化向量库，将在需要存储文档时再初始化
-                    self.vector_store = None
-                else:
-                    logger.error("Milvus连接失败，将在需要时重试")
+                try:
+                    # 尝试连接Milvus服务器
+                    connections.connect(
+                        alias="default",
+                        host=settings.milvus_host,
+                        port=settings.milvus_port,
+                        user=settings.milvus_user,
+                        password=settings.milvus_password
+                    )
+                    
+                    # 验证连接是否成功
+                    connected = connections.has_connection("default")
+                    if connected:
+                        logger.info("Milvus连接成功")
+                        
+                        # 检查集合是否存在
+                        if utility.has_collection(settings.milvus_collection):
+                            logger.info(f"Milvus集合 {settings.milvus_collection} 已存在，正在加载...")
+                            
+                            # 初始化Milvus向量库对象
+                            self.vector_store = Milvus(
+                                embedding_function=self.embedding_model,
+                                collection_name=settings.milvus_collection,
+                                connection_args={
+                                    "host": settings.milvus_host,
+                                    "port": settings.milvus_port,
+                                    "user": settings.milvus_user,
+                                    "password": settings.milvus_password
+                                },
+                                search_params=settings.milvus_search_params
+                            )
+                            logger.info(f"成功加载Milvus集合 {settings.milvus_collection}")
+                        else:
+                            logger.info(f"Milvus集合 {settings.milvus_collection} 不存在，将在需要时创建")
+                            self.vector_store = None
+                            if connections.has_connection("default"):
+                                connections.disconnect("default")
+                    else:
+                        logger.error("Milvus连接失败")
+                        self.vector_store = None
+                except Exception as e:
+                    logger.error(f"Milvus连接或加载失败: {str(e)}")
                     self.vector_store = None
         except Exception as e:
             logger.error(f"加载向量库失败: {str(e)}，将在需要时创建")

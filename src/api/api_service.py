@@ -1,7 +1,10 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from typing import Dict, Any
+from fastapi import FastAPI, UploadFile, File, HTTPException, APIRouter
+from typing import Dict, Any, Optional
 import uuid
 import os
+
+from pydantic import BaseModel
+
 from src.models.document_processor import DocumentProcessor
 from src.models import Vectorizer, GraphStore
 from src.config import settings
@@ -138,6 +141,56 @@ def get_all_document_summaries() -> Dict[str, Any]:
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
+from typing import Optional, List, Dict, Any
+
+# 添加MCP相关的路由
+mcp_router = APIRouter(prefix="/mcp", tags=["MCP工具"])
+
+class MCPQueryRequest(BaseModel):
+    query: str
+    top_k: Optional[int] = 5
+    tool_name: str
+
+class MCPResponse(BaseModel):
+    status: str
+    result: str
+
+@mcp_router.post("/tool", response_model=MCPResponse)
+async def call_mcp_tool(request: MCPQueryRequest):
+    """
+    调用MCP工具执行查询
+    
+    Args:
+        request: 包含查询文本、top_k参数和工具名称的请求
+    
+    Returns:
+        查询结果
+    """
+    try:
+        from src.mcp.mcp_client import MCPClient
+        
+        # 创建MCP客户端
+        client = MCPClient()
+        
+        # 根据工具名称调用相应的工具
+        if request.tool_name == "hybrid_search":
+            result = await client.call_hybrid_search(request.query, request.top_k)
+        elif request.tool_name == "generate_answer":
+            result = await client.call_generate_answer(request.query, request.top_k)
+        else:
+            raise HTTPException(status_code=400, detail=f"未知的工具名称: {request.tool_name}")
+        
+        return {"status": "success", "result": result}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 将MCP路由器添加到主应用
+app.include_router(mcp_router)
 
 if __name__ == "__main__":
     import uvicorn

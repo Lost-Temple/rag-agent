@@ -175,6 +175,21 @@ class ServiceManager:
         # 获取RAG系统实例，用于在关闭时释放资源
         from src.api.api_service import rag_system
         self._rag_system = rag_system
+        
+        # 初始化向量库
+        logger.info("Initializing vector store...")
+        if hasattr(self._rag_system, 'vectorizer'):
+            try:
+                # 加载向量库
+                self._rag_system.vectorizer.load_vector_store()
+                logger.info("Vector store loaded successfully")
+            except Exception as e:
+                logger.error(f"Failed to load vector store: {str(e)}")
+                # 如果向量库加载失败，可以考虑是否要继续启动服务
+                # 这里选择继续启动，但会记录错误
+        else:
+            logger.warning("RAG system does not have a vectorizer attribute")
+        
         self._resources_initialized = True
         
         # 并行启动所有服务

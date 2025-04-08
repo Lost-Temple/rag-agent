@@ -2,6 +2,7 @@ import argparse
 import uvicorn
 import sys
 import os
+import logging
 
 from src.models.llm.ollama_llm import OllamaLLMClient
 
@@ -18,6 +19,9 @@ from mcp.server import Server
 from src.models import Vectorizer
 from src.config import settings
 
+# 设置日志
+logger = logging.getLogger(__name__)
+
 # 初始化FastMCP服务器，用于RAG检索
 mcp = FastMCP("rag_retrieval")
 
@@ -25,7 +29,12 @@ class RetrievalService:
     def __init__(self):
         self.vectorizer = Vectorizer()
         self.vectorizer.load_vector_store()
+        # 不在这里调用load_vector_store，而是在使用前检查并加载
         self.llm = OllamaLLMClient()
+    
+    def is_initialized(self):
+        """检查向量库是否已初始化"""
+        return hasattr(self.vectorizer, 'vector_store') and self.vectorizer.vector_store is not None
 
 # 创建检索服务实例
 retrieval_service = RetrievalService()
@@ -40,6 +49,11 @@ async def hybrid_search(query: str, top_k: int = 5) -> str:
         top_k: 返回的结果数量
     """
     try:
+        # 确保向量库已加载
+        if not retrieval_service.is_initialized():
+            logger.info("混合检索, 向量库未初始化, 加载向量库...")
+            retrieval_service.vectorizer.load_vector_store()
+            
         # 执行混合检索
         results = retrieval_service.vectorizer.hybrid_search(
             query=query,
@@ -64,6 +78,7 @@ async def hybrid_search(query: str, top_k: int = 5) -> str:
         return "\n---\n".join(formatted_results)
     
     except Exception as e:
+        logger.error(f"混合搜索错误: {str(e)}")
         return f"检索过程中发生错误: {str(e)}"
 
 @mcp.tool()
@@ -76,6 +91,11 @@ async def generate_answer(query: str, top_k: int = 5) -> str:
         top_k: 检索的文档数量
     """
     try:
+        # 确保向量库已加载
+        if not retrieval_service.is_initialized():
+            logger.info("生成加答, 向量库未初始化, 加载向量库...")
+            retrieval_service.vectorizer.load_vector_store()
+            
         # 执行混合检索获取上下文
         context = retrieval_service.vectorizer.hybrid_search(
             query=query,
@@ -84,7 +104,8 @@ async def generate_answer(query: str, top_k: int = 5) -> str:
         
         # 使用LLM生成回答
         if retrieval_service.llm.use_ollama:
-            answer = retrieval_service.llm.generate_answer(query, context)
+            # 修复：添加await关键字等待协程执行完成
+            answer = await retrieval_service.llm.generate_answer(query, context)
             return answer
         else:
             # 如果LLM未启用，返回检索结果
@@ -92,9 +113,10 @@ async def generate_answer(query: str, top_k: int = 5) -> str:
             for i, result in enumerate(context):
                 formatted_results.append(f"文档 {i+1}:\n{result['content']}")
             
-            return "Ollama LLM未启用，仅返回检索结果:\n\n" + "\n\n".join(formatted_results)
+            return "LLM未启用，仅返回检索结果:\n\n" + "\n\n".join(formatted_results)
     
     except Exception as e:
+        logger.error(f"生成回答错误: {str(e)}")
         return f"生成回答过程中发生错误: {str(e)}"
 
 def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlette:

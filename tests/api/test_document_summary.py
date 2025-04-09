@@ -19,7 +19,7 @@ async def test_document_summary_generation(client, test_file, fixed_uuid, mock_d
     with patch('uuid.uuid4', return_value=uuid.UUID(fixed_uuid)), \
          patch('src.api.api_service.rag_system.doc_processor.load_document', return_value=mock_documents), \
          patch('src.api.api_service.rag_system.doc_processor.summarizer.summarize_documents', return_value=mock_summary), \
-         patch('src.api.api_service.rag_system.doc_processor.sqlite_store.save_document_summary', return_value=True) as mock_save_summary, \
+         patch('src.api.api_service.rag_system.doc_processor.store.save_document_summary', return_value=True) as mock_save_summary, \
          patch('src.api.api_service.rag_system.doc_processor.process_document', return_value=mock_documents), \
          patch('src.api.api_service.rag_system.vectorizer.initialize_vector_store'), \
          patch('src.api.api_service.rag_system.graph_store.create_document_node'), \
@@ -79,7 +79,7 @@ async def test_document_summary_direct_generation(test_file_with_content):
     
     with patch.object(doc_processor, 'load_document', return_value=mock_documents), \
          patch.object(doc_processor.summarizer, 'summarize_documents', return_value=mock_summary), \
-         patch.object(doc_processor.sqlite_store, 'save_document_summary', return_value=True) as mock_save_summary:
+         patch.object(doc_processor.store, 'save_document_summary', return_value=True) as mock_save_summary:
         
         # 生成摘要
         doc_id = "test-doc-id"

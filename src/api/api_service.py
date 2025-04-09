@@ -9,6 +9,7 @@ from src.models.document_processor import DocumentProcessor
 from src.models import Vectorizer, GraphStore
 from src.config import settings
 from src.api.llm_service import router as llm_router
+from src.utils import logger
 
 app = FastAPI(title="RAG System API")
 
@@ -28,6 +29,8 @@ class RAGSystem:
             self.vectorizer.load_vector_store()
 
 rag_system = RAGSystem()
+
+from fastapi import BackgroundTasks  # 新增导入
 
 @app.post("/documents/upload")
 async def upload_document(file: UploadFile = File(...)) -> Dict[str, Any]:
@@ -107,6 +110,103 @@ async def upload_document(file: UploadFile = File(...)) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/documents/upload/async")
+async def async_upload_document(
+    file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = BackgroundTasks()
+) -> Dict[str, Any]:
+    """异步上传文档接口"""
+    # 生成唯一文档ID
+    doc_id = str(uuid.uuid4())
+    
+    # 确保原始文档存储目录存在
+    if not os.path.exists(settings.original_documents_path):
+        os.makedirs(settings.original_documents_path)
+    
+    # 创建以doc_id为名的子目录
+    doc_dir = os.path.join(settings.original_documents_path, doc_id)
+    os.makedirs(doc_dir, exist_ok=True)
+        
+    # 保存上传的文件到文档子目录，使用原始文件名
+    original_file_path = os.path.join(doc_dir, file.filename)
+    
+    try:
+        with open(original_file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}")
+    
+    # 添加后台任务处理文档
+    background_tasks.add_task(
+        process_uploaded_document,
+        original_file_path,
+        doc_id,
+        file.filename,
+        file.content_type,
+        doc_dir
+    )
+    
+    return {
+        "status": "processing",
+        "doc_id": doc_id,
+        "message": "文档已接收，正在后台处理"
+    }
+
+async def process_uploaded_document(
+    file_path: str,
+    doc_id: str,
+    filename: str,
+    content_type: str,
+    doc_dir: str
+):
+    """后台处理上传的文档"""
+    try:
+        # 处理文档
+        documents = rag_system.doc_processor.process_document(file_path)
+
+        # 提取元数据
+        metadata = {
+            "doc_id": doc_id,
+            "filename": filename,
+            "content_type": content_type,
+            "original_file_path": file_path,
+            "doc_dir": doc_dir
+        }
+
+        # 存储到图数据库
+        rag_system.graph_store.create_document_node(doc_id, metadata)
+
+        # 为每个文档片段创建节点
+        for i, doc in enumerate(documents):
+            chunk_id = f"{doc_id}_chunk_{i}"
+            chunk_metadata = doc.metadata.copy()
+            chunk_metadata.update({
+                "chunk_id": chunk_id,
+                "doc_id": doc_id,
+                "chunk_index": i
+            })
+
+            rag_system.graph_store.create_chunk_node(
+                chunk_id,
+                doc_id,
+                doc.page_content,
+                chunk_metadata
+            )
+
+        # 更新向量存储
+        rag_system.vectorizer.initialize_vector_store(documents)
+
+        # 生成文档摘要
+        await rag_system.doc_processor.generate_document_summary(
+            file_path,
+            doc_id,
+            filename
+        )
+
+    except Exception as e:
+        logger.error(f"后台处理文档失败: {str(e)}")
+
 @app.get("/documents/{doc_id}")
 def get_document(doc_id: str) -> Dict[str, Any]:
     try:
@@ -150,17 +250,15 @@ def get_document(doc_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/documents/summaries/all")
-def get_all_document_summaries() -> Dict[str, Any]:
+def get_all_document_summaries(
+    page: int = 1, 
+    page_size: int = 10
+) -> Dict[str, Any]:
     try:
-        # 获取所有文档摘要
-        summaries = rag_system.doc_processor.get_all_document_summaries()
-        
-        return {
-            "status": "success",
-            "count": len(summaries),
-            "summaries": summaries
-        }
-    
+        return rag_system.doc_processor.store.get_paginated_summaries(
+            page=page,
+            page_size=page_size
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

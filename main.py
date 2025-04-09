@@ -53,10 +53,13 @@ class ServiceManager:
                         logger.info("Closing graph database connection...")
                         self._rag_system.graph_store.close()
                     
-                    # 关闭SQLite数据库连接
-                    if hasattr(self._rag_system, 'doc_processor') and hasattr(self._rag_system.doc_processor, 'sqlite_store'):
-                        logger.info("Closing SQLite database connection...")
-                        self._rag_system.doc_processor.sqlite_store.close()
+                    # 关闭数据库连接
+                    if hasattr(self._rag_system, 'doc_processor') and hasattr(self._rag_system.doc_processor, 'store'):
+                        logger.info("Closing database connection...")
+                        try:
+                            self._rag_system.doc_processor.store.close()
+                        except Exception as e:
+                            logger.error(f"Error closing database connection: {str(e)}")
                 except Exception as e:
                     logger.error(f"Error closing database connections: {str(e)}")
             

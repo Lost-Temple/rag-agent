@@ -9,11 +9,14 @@ from langchain_community.document_loaders import (
 )
 from langchain_community.docstore.document import Document
 from src.config import settings
-from src.models.storage.peewee_store import PeeweeStore
+from src.models.storage.base_store import BaseDocumentStore
+from src.models.storage.sqlite_store import SQLiteStore
+from src.models.storage.mysql_store import MySQLStore
 from src.models.summarization.document_summarizer import DocumentSummarizer
+from src.utils import logger
 
 class DocumentProcessor:
-    def __init__(self):
+    def __init__(self, store: Optional[BaseDocumentStore] = None):
         # 使用针对中文优化的分块设置
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.chunk_size,
@@ -32,8 +35,8 @@ class DocumentProcessor:
         # 初始化文档摘要生成器
         self.summarizer = DocumentSummarizer()
         
-        # 初始化SQLite存储
-        self.sqlite_store = PeeweeStore()
+        # 初始化存储
+        self.store = self._init_document_store()
     
     def load_document(self, file_path: str) -> List[Document]:
         """加载文档并返回Document对象列表"""
@@ -81,7 +84,7 @@ class DocumentProcessor:
             
             # 存储摘要到SQLite
             if summary and summary != "摘要生成失败" and summary != "多文档摘要生成失败":
-                success = self.sqlite_store.save_document_summary(doc_id, filename, summary)
+                success = self.store.save_document_summary(doc_id, filename, summary)
                 if success:
                     return summary
             return None
@@ -91,22 +94,21 @@ class DocumentProcessor:
             return None
     
     def get_document_summary(self, doc_id: str) -> Optional[Dict[str, Any]]:
-        """
-        获取文档摘要
-        
-        Args:
-            doc_id: 文档ID
-            
-        Returns:
-            Optional[Dict[str, Any]]: 文档摘要信息，如果不存在则返回None
-        """
-        return self.sqlite_store.get_document_summary(doc_id)
+        return self.store.get_document_summary(doc_id)
     
     def get_all_document_summaries(self) -> List[Dict[str, Any]]:
-        """
-        获取所有文档摘要
+        return self.store.get_all_document_summaries()
+    
+    def _init_document_store(self):
+        """根据配置初始化文档存储"""
+        db_type = settings.db_type.lower()
         
-        Returns:
-            List[Dict[str, Any]]: 所有文档摘要的列表
-        """
-        return self.sqlite_store.get_all_document_summaries()
+        if db_type == "sqlite":
+            logger.info("使用SQLite数据库存储")
+            return SQLiteStore()
+        elif db_type == "mysql":
+            logger.info("使用MySQL数据库存储")
+            return MySQLStore()
+        else:
+            logger.warning(f"未知的数据库类型: {db_type}，默认使用SQLite")
+            return SQLiteStore()

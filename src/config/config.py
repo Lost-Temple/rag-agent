@@ -25,8 +25,18 @@ class Settings(BaseSettings):
     # 原始文档存储配置
     original_documents_path: str = "./data/original_documents"
     
+    # 数据库配置
+    db_type: str = "sqlite"  # 支持sqlite, mysql
+    
     # SQLite数据库配置
     sqlite_db_path: str = "./data/database/document_summaries.db"
+    
+    # MySQL数据库配置
+    mysql_host: str = "localhost"
+    mysql_port: int = 3306
+    mysql_user: str = "root"
+    mysql_password: str = ""
+    mysql_db_name: str = "rag_agent"
     
     # Milvus配置
     milvus_host: str = "localhost"

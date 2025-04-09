@@ -2,10 +2,7 @@ import argparse
 import uvicorn
 import sys
 import os
-import logging
-
 from src.models.llm.ollama_llm import OllamaLLMClient
-
 # 添加项目根目录到Python路径
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))) 
 
@@ -20,7 +17,7 @@ from src.models import Vectorizer
 from src.config import settings
 
 # 设置日志
-logger = logging.getLogger(__name__)
+from src.utils import logger
 
 # 初始化FastMCP服务器，用于RAG检索
 mcp = FastMCP("rag_retrieval")
@@ -48,6 +45,7 @@ async def hybrid_search(query: str, top_k: int = 5) -> str:
         query: 用户的查询问题
         top_k: 返回的结果数量
     """
+    logger.info(f"调用了MCP工具: hybrid_search, query: {query}, top_k: {top_k}")
     try:
         # 确保向量库已加载
         if not retrieval_service.is_initialized():
@@ -90,10 +88,11 @@ async def generate_answer(query: str, top_k: int = 5) -> str:
         query: 用户的查询问题
         top_k: 检索的文档数量
     """
+    logger.info(f"调用了MCP工具: generate_answer, query: {query}, top_k: {top_k}")
     try:
         # 确保向量库已加载
         if not retrieval_service.is_initialized():
-            logger.info("生成加答, 向量库未初始化, 加载向量库...")
+            logger.info("生成回答, 向量库未初始化, 加载向量库...")
             retrieval_service.vectorizer.load_vector_store()
             
         # 执行混合检索获取上下文
@@ -106,6 +105,7 @@ async def generate_answer(query: str, top_k: int = 5) -> str:
         if retrieval_service.llm.use_ollama:
             # 修复：添加await关键字等待协程执行完成
             answer = await retrieval_service.llm.generate_answer(query, context)
+            logger.info(f"LLM生成回答: {answer}")
             return answer
         else:
             # 如果LLM未启用，返回检索结果

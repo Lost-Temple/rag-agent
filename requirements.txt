@@ -5,6 +5,7 @@ langchain-chroma==0.2.2
 langchain-milvus==0.1.9
 langchain-huggingface==0.1.2
 langchain-unstructured==0.1.6
+langchain-mcp-adapters==0.0.7
 pydantic>=2.11.1
 fastapi==0.115.12
 uvicorn==0.34.0

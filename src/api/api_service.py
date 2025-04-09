@@ -123,11 +123,23 @@ def get_document(doc_id: str) -> Dict[str, Any]:
         
         # 获取文档摘要（如果存在）
         summary_info = rag_system.doc_processor.get_document_summary(doc_id)
-        
+
+        # 确保metadata和chunks都是可序列化的字典类型
+        serializable_metadata = dict(metadata) if metadata else {}
+        serializable_chunks = [dict(chunk) for chunk in chunks] if chunks else []
+        # 要移除的键
+        keys_to_remove = ['source', 'doc_id']
+
+        # 创建一个新的列表，其中每个字典都已移除指定的键
+        serializable_chunks = [
+            {k: v for k, v in chunk.items() if k not in keys_to_remove}
+            for chunk in serializable_chunks
+        ]
+
         return {
             "doc_id": doc_id,
-            "metadata": metadata,
-            "chunks": chunks,
+            "metadata": serializable_metadata,
+            "chunks": serializable_chunks,
             "summary": summary_info["summary"] if summary_info else None
         }
     

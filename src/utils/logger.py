@@ -28,7 +28,8 @@ file_handler = RotatingFileHandler(
 file_handler.setLevel(logging.INFO)
 
 # 创建格式化器
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(pathname)s:%(lineno)d - %(message)s')
 console_handler.setFormatter(formatter)
 file_handler.setFormatter(formatter)
 
@@ -37,17 +38,17 @@ logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
 # 提供不同级别的日志函数
-def debug(msg, *args, **kwargs):
-    logger.debug(msg, *args, **kwargs)
+def debug(msg, stacklevel=2, *args, **kwargs):
+    logger.debug(msg=msg, stacklevel=stacklevel, *args, **kwargs)
 
-def info(msg, *args, **kwargs):
-    logger.info(msg, *args, **kwargs)
+def info(msg, stacklevel=2, *args, **kwargs):
+    logger.info(msg=msg, stacklevel=stacklevel, *args, **kwargs)
 
-def warning(msg, *args, **kwargs):
-    logger.warning(msg, *args, **kwargs)
+def warning(msg, stacklevel=2, *args, **kwargs):
+    logger.warning(msg=msg, stacklevel=stacklevel, *args, **kwargs)
 
-def error(msg, *args, **kwargs):
-    logger.error(msg, *args, **kwargs)
+def error(msg, stacklevel=2, *args, **kwargs):
+    logger.error(msg=msg, stacklevel=stacklevel, *args, **kwargs)
 
-def critical(msg, *args, **kwargs):
-    logger.critical(msg, *args, **kwargs)
+def critical(msg, stacklevel=2, *args, **kwargs):
+    logger.critical(msg=msg, stacklevel=stacklevel, *args, **kwargs)

@@ -70,6 +70,11 @@ class Settings(BaseSettings):
     # 日志配置
     log_file_max_bytes: int = 10*1024*1024  # 日志文件大小限制，默认10MB
     log_file_backup_count: int = 5         # 保留的备份文件数量
+
+    # 超时设置（秒）
+    tool_timeout: int = 120  # 工具调用超时时间
+    agent_timeout: int = 180.0  # 代理查询超时时间
+    max_retries: int = 3  # 最大重试次数
     
     model_config = {
         "env_file": ".env"

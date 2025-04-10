@@ -62,7 +62,7 @@ class LLMAgent:
                         try:
                             result = await asyncio.wait_for(
                                 self.mcp_client.call_tool(current_tool_name, query=query, **kwargs),
-                                timeout=120.0  # 增加到120秒
+                                timeout=settings.tool_timeout  # 使用配置文件中的超时设置
                             )
                             logger.info(f"工具 {current_tool_name} 返回结果: {result[:100] if isinstance(result, str) else str(result)[:100]}...")
                             return result
@@ -111,7 +111,7 @@ class LLMAgent:
         logger.info(f"处理问题: {question}")
         
         # 添加重试机制
-        max_retries = 2
+        max_retries = settings.max_retries
         retry_count = 0
         
         while retry_count <= max_retries:
@@ -124,7 +124,7 @@ class LLMAgent:
                 
                 # 添加超时处理
                 try:
-                    response = await asyncio.wait_for(response_future, timeout=180.0)  # 增加到180秒
+                    response = await asyncio.wait_for(response_future, timeout=settings.agent_timeout)  # 使用配置文件中的超时设置
                 except asyncio.TimeoutError:
                     retry_count += 1
                     if retry_count <= max_retries:

@@ -295,19 +295,20 @@ async def call_mcp_tool(request: MCPQueryRequest):
         
         # 创建MCP客户端
         client = MCPClient()
+        await client.connect()  # 确保连接到MCP服务器
         
-        # 根据工具名称调用相应的工具
-        if request.tool_name == "hybrid_search":
-            result = await client.call_hybrid_search(request.query, request.top_k)
-        elif request.tool_name == "generate_answer":
-            result = await client.call_generate_answer(request.query, request.top_k)
-        else:
-            raise HTTPException(status_code=400, detail=f"未知的工具名称: {request.tool_name}")
+        # 使用通用的call_tool方法
+        result = await client.call_tool(
+            request.tool_name, 
+            query=request.query, 
+            top_k=request.top_k
+        )
         
         return {"status": "success", "result": result}
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"调用工具 {request.tool_name} 失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"调用工具 {request.tool_name} 失败: {str(e)}")
 
 # 将MCP路由器添加到主应用
 app.include_router(mcp_router)

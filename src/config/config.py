@@ -64,8 +64,8 @@ class Settings(BaseSettings):
     api_port: int = 8000
     
     # MCP服务配置
-    mcp_host: str = "0.0.0.0"
-    mcp_port: int = 50051
+    mcp_host: str = "localhost"  # 这个不能使用0.0.0.0，因为mcp_client需要使用这个地址来连接到服务器
+    mcp_port: int = 8000  # MCP服务端口, 与API服务端口一致
     
     # 日志配置
     log_file_max_bytes: int = 10*1024*1024  # 日志文件大小限制，默认10MB

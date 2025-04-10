@@ -14,8 +14,6 @@ class ServiceManager:
     def __init__(self):
         self._running = True
         self._api_server = None
-        self._mcp_server = None
-        self._mcp_app = None
         self._event_loop = None
         self._resources_initialized = False
         self._rag_system = None
@@ -38,11 +36,6 @@ class ServiceManager:
             if self._api_server:
                 logger.info("Stopping API server...")
                 self._api_server.should_exit = True
-            
-            # 停止MCP服务器
-            if self._mcp_server:
-                logger.info("Stopping MCP server...")
-                # MCP服务器没有明确的关闭方法，依赖于事件循环的停止
             
             # 关闭RAG系统资源
             if self._rag_system:
@@ -106,21 +99,18 @@ class ServiceManager:
                     pass
                 self._event_loop.stop()
     
-    async def _start_api_server(self):
-        config = uvicorn.Config(
-            app=app,
-            host=settings.api_host,
-            port=settings.api_port,
-            loop="asyncio"
-        )
-        self._api_server = uvicorn.Server(config)
-        logger.info(f"API Server starting on {settings.api_host}:{settings.api_port}")
-        await self._api_server.serve()
+    def _setup_mcp_server(self):
+        """设置MCP服务器并将其挂载到FastAPI应用上"""
+        # 导入MCP服务模块
+        from src.mcp.mcp_service import mcp
         
-    def _create_starlette_app(self, mcp_server: Server, *, debug: bool = False) -> Starlette:
-        """创建一个Starlette应用，用于提供MCP服务器的SSE服务。"""
-        sse = SseServerTransport("/messages/")
-
+        # 获取MCP服务器实例
+        mcp_server = mcp._mcp_server
+        
+        # 创建SSE传输
+        sse = SseServerTransport("/mcp/messages/")
+        
+        # 定义SSE处理函数
         async def handle_sse(request: Request) -> None:
             async with sse.connect_sse(
                     request.scope,
@@ -132,37 +122,39 @@ class ServiceManager:
                     write_stream,
                     mcp_server.create_initialization_options(),
                 )
-
-        return Starlette(
-            debug=debug,
-            routes=[
-                Route("/sse", endpoint=handle_sse),
-                Mount("/messages/", app=sse.handle_post_message),
-            ],
-        )
         
-    async def _start_mcp_server(self):
-        # 导入MCP服务模块
-        from src.mcp.mcp_service import mcp
+        # 将MCP的SSE端点挂载到FastAPI应用
+        from fastapi import APIRouter
+        mcp_sse_router = APIRouter()
         
-        # 获取MCP服务器实例
-        mcp_server = mcp._mcp_server
-        self._mcp_server = mcp_server
+        # 添加SSE路由
+        from starlette.routing import Route
+        # 注意：这里不需要前缀，因为我们会在include_router时添加前缀
+        mcp_sse_router.routes.append(Route("/sse", endpoint=handle_sse))
         
-        # 创建Starlette应用
-        starlette_app = self._create_starlette_app(mcp_server, debug=True)
-        self._mcp_app = starlette_app
+        # 挂载消息处理路由
+        app.mount("/mcp/messages", sse.handle_post_message)
         
-        # 配置并启动MCP服务器
+        # 将SSE路由添加到主应用，使用前缀
+        app.include_router(mcp_sse_router, prefix="/mcp")
+        
+        logger.info("MCP SSE服务已挂载到API服务器")
+    
+    async def _start_combined_server(self):
+        """启动合并后的服务器"""
+        # 设置MCP服务器
+        self._setup_mcp_server()
+        
+        # 配置并启动合并后的服务器
         config = uvicorn.Config(
-            app=starlette_app,
-            host=settings.mcp_host,
-            port=settings.mcp_port,
+            app=app,
+            host=settings.api_host,
+            port=settings.api_port,
             loop="asyncio"
         )
-        mcp_uvicorn = uvicorn.Server(config)
-        logger.info(f"MCP Server starting on {settings.mcp_host}:{settings.mcp_port}")
-        await mcp_uvicorn.serve()
+        self._api_server = uvicorn.Server(config)
+        logger.info(f"Combined API+MCP Server starting on {settings.api_host}:{settings.api_port}")
+        await self._api_server.serve()
     
     async def start_all_services(self):
         logger.info("Starting all services...")
@@ -195,12 +187,9 @@ class ServiceManager:
         
         self._resources_initialized = True
         
-        # 并行启动所有服务
-        logger.info("Starting all services in parallel...")
-        await asyncio.gather(
-            self._start_api_server(),
-            self._start_mcp_server()
-        )
+        # 启动合并后的服务器
+        logger.info("Starting combined API+MCP server...")
+        await self._start_combined_server()
 
 def main():
     service_manager = ServiceManager()

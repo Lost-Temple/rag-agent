@@ -8,6 +8,7 @@ import sys
 from typing import Optional, Dict, Any
 
 from src.config import settings
+from src.utils import logger
 
 class MCPClient:
     def __init__(self, host: Optional[str] = None, port: Optional[int] = None):
@@ -19,9 +20,10 @@ class MCPClient:
             port: MCP服务器端口，默认使用配置中的端口
         """
         # 设置服务器地址
-        self.host = host or settings.mcp_host
-        self.port = port or settings.mcp_port
-        self.server_url = f"http://localhost:{self.port}/sse"
+        self.host = host or settings.api_host
+        self.port = port or settings.api_port
+        # 更新URL路径，使用合并后的MCP路径
+        self.server_url = f"http://localhost:{self.port}/mcp/sse"
         
         # 初始化会话和上下文管理
         self.session: Optional[ClientSession] = None
@@ -36,7 +38,8 @@ class MCPClient:
             return
             
         try:
-            # 创建SSE客户端连接
+            logger.info(f"正在连接MCP服务器: {self.server_url}")
+            # 创建SSE客户端连接，使用正确的URL
             self._streams_context = sse_client(url=self.server_url)
             streams = await self._streams_context.__aenter__()
 
@@ -51,11 +54,12 @@ class MCPClient:
             # 获取可用工具列表
             response = await self.session.list_tools()
             tools = response.tools
-            print(f"已连接到MCP服务器，可用工具: {[tool.name for tool in tools]}")
+            logger.info(f"已连接到MCP服务器，可用工具: {[tool.name for tool in tools]}")
             
         except Exception as e:
             # 连接失败时清理资源
             await self.disconnect()
+            logger.error(f"连接MCP服务器失败: {str(e)}")
             raise Exception(f"连接MCP服务器失败: {str(e)}")
 
     async def disconnect(self):

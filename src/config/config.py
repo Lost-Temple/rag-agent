@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
 
 class Settings(BaseSettings):
     # 向量化模型配置
@@ -84,4 +85,9 @@ class Settings(BaseSettings):
         "env_file": ".env"
     }
 
-settings = Settings()
+# 每次访问 settings 都会重新加载 .env
+def get_settings():
+    load_dotenv()  # 重新加载 .env
+    return Settings()
+
+settings = get_settings()

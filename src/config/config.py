@@ -73,8 +73,13 @@ class Settings(BaseSettings):
 
     # 超时设置（秒）
     tool_timeout: int = 120  # 工具调用超时时间
-    agent_timeout: int = 180.0  # 代理查询超时时间
+    agent_timeout: int = 180  # 代理查询超时时间
     max_retries: int = 3  # 最大重试次数
+
+    # 文档摘要相关设置
+    summarize_max_recursion: int = 3
+    # 最大摘要长度
+    summarize_max_length: int = 4000
     
     model_config = {
         "env_file": ".env"

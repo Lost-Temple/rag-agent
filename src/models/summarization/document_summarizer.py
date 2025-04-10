@@ -115,19 +115,21 @@ class DocumentSummarizer:
             logger.error(f"摘要生成失败: {str(e)}")
             return "摘要生成失败"
     
-    async def summarize_text(self, text: str) -> str:
+    async def summarize_text(self, text: str, max_recursion: int = 3, max_length: int = 2000) -> str:
         """
-        对文本内容进行摘要
+        对文本内容进行摘要，递归处理直到摘要长度合适
         
         Args:
             text: 文本内容
+            max_recursion: 最大递归深度
+            max_length: 期望的最大摘要长度
             
         Returns:
             str: 文本摘要
         """
         try:
             # 检查文本长度，如果较短则直接摘要
-            if len(text) < 4000:
+            if len(text) <= max_length:
                 return await self.summary_chain.ainvoke({"content": text})
             
             # 对长文本进行分块处理
@@ -143,37 +145,22 @@ class DocumentSummarizer:
                     logger.info(f"已完成第{i+1}/{len(chunks)}块的摘要生成")
                 except Exception as chunk_error:
                     logger.error(f"处理第{i+1}块时出错: {str(chunk_error)}")
-                    # 添加一个错误占位符，确保索引一致性
                     chunk_summaries.append(f"[此部分摘要生成失败]")
             
-            # 如果只有一个块的摘要，直接返回
-            if len(chunk_summaries) == 1:
-                return chunk_summaries[0]
-            
-            # 合并多个块的摘要
+            # 合并摘要
             combined_summaries = "\n\n".join([f"部分{i+1}:\n{summary}" for i, summary in enumerate(chunk_summaries)])
             
-            # 如果合并后的摘要仍然很长，可能需要再次分块处理
-            if len(combined_summaries) > 4000:
-                logger.info("合并后的摘要仍然很长，进行二次摘要")
-                # 再次分块并摘要
-                secondary_chunks = self._chunk_text(combined_summaries)
-                secondary_summaries = []
-                
-                for i, chunk in enumerate(secondary_chunks):
-                    try:
-                        summary = await self.merge_chain.ainvoke({"summaries": chunk})
-                        secondary_summaries.append(summary)
-                    except Exception as chunk_error:
-                        logger.error(f"二次摘要第{i+1}块时出错: {str(chunk_error)}")
-                        secondary_summaries.append(f"[此部分二次摘要生成失败]")
-                
-                # 最终合并
-                final_combined = "\n\n".join(secondary_summaries)
-                return await self.merge_chain.ainvoke({"summaries": final_combined})
-            else:
-                # 直接合并所有摘要
-                return await self.merge_chain.ainvoke({"summaries": combined_summaries})
+            # 检查是否达到最大递归深度
+            if max_recursion <= 0:
+                logger.warning("已达到最大递归深度，返回当前摘要")
+                return combined_summaries[:max_length] + "..." if len(combined_summaries) > max_length else combined_summaries
+            
+            # 如果合并后的摘要仍然很长，递归处理
+            if len(combined_summaries) > max_length:
+                logger.info(f"合并后的摘要仍然很长({len(combined_summaries)}字符)，进行递归摘要")
+                return await self.summarize_text(combined_summaries, max_recursion-1, max_length)
+            
+            return combined_summaries
                 
         except Exception as e:
             logger.error(f"摘要生成过程中出错: {str(e)}")

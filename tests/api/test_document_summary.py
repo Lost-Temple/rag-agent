@@ -1,10 +1,7 @@
-import os
 import pytest
 import uuid
-from unittest.mock import patch, MagicMock
-
+from unittest.mock import patch
 from langchain_core.documents import Document
-
 from src.models.document_processor import DocumentProcessor
 from src.config import settings
 

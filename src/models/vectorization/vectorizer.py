@@ -1,14 +1,15 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.documents import Document
-from langchain_community.vectorstores import FAISS, Milvus
-from pymilvus import connections, Collection, utility
+from langchain_community.vectorstores import FAISS
+from pymilvus import connections, utility
 from langchain_chroma import Chroma
 from sentence_transformers import CrossEncoder
 from src.config import settings
 from src.models.llm.ollama_llm import OllamaLLMClient
 from src.utils import logger
 import os
+from langchain_milvus.vectorstores import Milvus
 
 class Vectorizer:
     def __init__(self):
@@ -56,12 +57,7 @@ class Vectorizer:
                     documents=documents,
                     embedding=self.embedding_model,
                     collection_name=settings.milvus_collection,
-                    connection_args={
-                        "host": settings.milvus_host,
-                        "port": settings.milvus_port,
-                        "user": settings.milvus_user,
-                        "password": settings.milvus_password
-                    },
+                    connection_args=self._get_milvus_connection_args(),
                     index_params={
                         "index_type": settings.milvus_index_type,
                         "metric_type": settings.milvus_metric_type,
@@ -164,6 +160,14 @@ class Vectorizer:
         # 例如，检查self.vector_store是否为None
         return hasattr(self, 'vector_store') and self.vector_store is not None
     
+    def _get_milvus_connection_args(self):
+        """获取Milvus连接参数"""
+        return {
+            "uri": f"http://{settings.milvus_host}:{settings.milvus_port}",
+            "user": settings.milvus_user,
+            "password": settings.milvus_password
+        }
+
     def load_vector_store(self):
         """加载现有的向量数据库"""
         try:
@@ -218,12 +222,7 @@ class Vectorizer:
                             self.vector_store = Milvus(
                                 embedding_function=self.embedding_model,
                                 collection_name=settings.milvus_collection,
-                                connection_args={
-                                    "host": settings.milvus_host,
-                                    "port": settings.milvus_port,
-                                    "user": settings.milvus_user,
-                                    "password": settings.milvus_password
-                                },
+                                connection_args=self._get_milvus_connection_args(),
                                 search_params=settings.milvus_search_params
                             )
                             logger.info(f"成功加载Milvus集合 {settings.milvus_collection}")

@@ -1,7 +1,6 @@
-from typing import List, Optional, Dict, Any
+from typing import List
 from langchain_core.documents import Document
 from src.models.llm.ollama_llm import OllamaLLMClient
-from src.config import settings
 from src.utils import logger
 from langchain_core.prompts import PromptTemplate
 

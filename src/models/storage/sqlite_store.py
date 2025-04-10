@@ -1,4 +1,4 @@
-from peewee import SqliteDatabase, Model, CharField, TextField, DateTimeField
+from peewee import SqliteDatabase
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from src.config import settings

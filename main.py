@@ -3,10 +3,7 @@ import signal
 import uvicorn
 from src.api.api_service import app
 from src.config import settings
-from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.routing import Mount, Route
-from mcp.server import Server
 from mcp.server.sse import SseServerTransport
 from src.utils import logger
 

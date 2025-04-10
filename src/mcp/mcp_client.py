@@ -1,11 +1,8 @@
 import asyncio
 from contextlib import AsyncExitStack
-import json
 from mcp import ClientSession
 from mcp.client.sse import sse_client
-import os
-import sys
-from typing import Optional, Dict, Any
+from typing import Optional, Any
 
 from src.config import settings
 from src.utils import logger

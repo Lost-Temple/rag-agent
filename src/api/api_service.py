@@ -2,9 +2,6 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, APIRouter
 from typing import Dict, Any, Optional
 import uuid
 import os
-
-from pydantic import BaseModel
-
 from src.models.document_processor import DocumentProcessor
 from src.models import Vectorizer, GraphStore
 from src.config import settings

@@ -23,7 +23,10 @@ brew install --cask libreoffice  # 这个命令用于安装LibreOffice，在使�
 ```
 
 
-2. 安装并启动Neo4j数据库
+2. 数据库
+- 安装并启动Neo4j数据库
+- mysql数据库(可选)
+- Milvus数据库(可选)
 
 3. 创建配置文件：
 

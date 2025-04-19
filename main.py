@@ -1,10 +1,9 @@
 import asyncio
 import signal
 import uvicorn
+from fastapi_mcp import FastApiMCP
 from src.api.api_service import app
 from src.config import settings
-from starlette.requests import Request
-from mcp.server.sse import SseServerTransport
 from src.utils import logger
 
 class ServiceManager:
@@ -97,45 +96,19 @@ class ServiceManager:
                 self._event_loop.stop()
     
     def _setup_mcp_server(self):
-        """设置MCP服务器并将其挂载到FastAPI应用上"""
-        # 导入MCP服务模块
-        from src.mcp.mcp_service import mcp
+        """使用fastapi-mcp包设置MCP服务器"""
+        mcp = FastApiMCP(
+            app,
+            # Optional parameters
+            name="RAG AGENT MCP",
+            description="generation from api_service",
+            base_url="http://localhost:8000",
+        )
+
+        # Mount the MCP server directly to your FastAPI app
+        mcp.mount()
         
-        # 获取MCP服务器实例
-        mcp_server = mcp._mcp_server
-        
-        # 创建SSE传输
-        sse = SseServerTransport("/mcp/messages/")
-        
-        # 定义SSE处理函数
-        async def handle_sse(request: Request) -> None:
-            async with sse.connect_sse(
-                    request.scope,
-                    request.receive,
-                    request._send,  # noqa: SLF001
-            ) as (read_stream, write_stream):
-                await mcp_server.run(
-                    read_stream,
-                    write_stream,
-                    mcp_server.create_initialization_options(),
-                )
-        
-        # 将MCP的SSE端点挂载到FastAPI应用
-        from fastapi import APIRouter
-        mcp_sse_router = APIRouter()
-        
-        # 添加SSE路由
-        from starlette.routing import Route
-        # 注意：这里不需要前缀，因为我们会在include_router时添加前缀
-        mcp_sse_router.routes.append(Route("/sse", endpoint=handle_sse))
-        
-        # 挂载消息处理路由
-        app.mount("/mcp/messages", sse.handle_post_message)
-        
-        # 将SSE路由添加到主应用，使用前缀
-        app.include_router(mcp_sse_router, prefix="/mcp")
-        
-        logger.info("MCP SSE服务已挂载到API服务器")
+        logger.info("MCP服务已通过fastapi-mcp挂载到API服务器")
     
     async def _start_combined_server(self):
         """启动合并后的服务器"""
